@@ -1,590 +1,1224 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>GIS Layer Registry — City of Montgomery</title>
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
-  <style>
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-    body {
-      font-family: 'JetBrains Mono', 'Fira Code', monospace;
-      background: #0d1117;
-      color: #e2e8f0;
-      min-height: 100vh;
-    }
-
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: #111827; }
-    ::-webkit-scrollbar-thumb { background: #2d3650; border-radius: 3px; }
-
-    input, textarea, button, select { font-family: inherit; }
-
-    /* ── HEADER ── */
-    #header {
-      background: #111827;
-      border-bottom: 1px solid #1e293b;
-      padding: 0 28px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      height: 56px;
-      position: sticky;
-      top: 0;
-      z-index: 100;
-    }
-
-    .logo { display: flex; align-items: center; gap: 12px; }
-    .logo-icon {
-      width: 32px; height: 32px;
-      background: linear-gradient(135deg, #3b82f6, #6366f1);
-      border-radius: 7px;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 15px;
-    }
-    .logo-title { font-size: 14px; font-weight: 700; color: #f1f5f9; letter-spacing: -0.02em; line-height: 1.2; }
-    .logo-sub   { font-size: 10px; color: #475569; }
-
-    /* ── NAV TABS ── */
-    .nav { display: flex; gap: 4px; }
-    .nav-btn {
-      padding: 6px 14px; border-radius: 7px;
-      border: 1px solid transparent;
-      background: transparent; color: #64748b;
-      cursor: pointer; font-size: 12px; font-weight: 400;
-      display: flex; align-items: center; gap: 6px;
-      transition: all 0.15s;
-    }
-    .nav-btn:hover  { background: rgba(59,130,246,0.08); }
-    .nav-btn.active { border-color: #3b82f6; background: rgba(59,130,246,0.15); color: #60a5fa; font-weight: 600; }
-
-    /* ── SYNC STATUS ── */
-    #sync-status {
-      font-size: 11px; padding: 4px 10px; border-radius: 6px;
-      transition: all 0.3s; opacity: 0;
-    }
-    #sync-status.show   { opacity: 1; }
-    #sync-status.syncing { color: #94a3b8; background: rgba(148,163,184,0.1); }
-    #sync-status.ok      { color: #34d399; background: rgba(52,211,153,0.1); }
-    #sync-status.err     { color: #f87171; background: rgba(248,113,113,0.1); }
-
-    /* ── PAGES ── */
-    .page { display: none; }
-    .page.active { display: block; }
-
-    /* ── TOOLBAR ── */
-    #toolbar {
-      padding: 18px 28px 0;
-      display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
-    }
-
-    .search-wrap { position: relative; flex: 1; min-width: 220px; max-width: 480px; }
-    .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: #475569; font-size: 16px; pointer-events: none; }
-    #search-input {
-      width: 100%; padding: 9px 36px;
-      background: #111827; border: 1px solid #1e293b;
-      border-radius: 8px; color: #e2e8f0; font-size: 13px;
-      transition: border-color 0.2s;
-    }
-    #search-input:focus { outline: none; border-color: #3b82f6; }
-    #search-clear {
-      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
-      background: none; border: none; color: #475569; cursor: pointer;
-      font-size: 18px; line-height: 1; display: none;
-    }
-
-    .filter-btns { display: flex; gap: 6px; }
-    .filter-btn {
-      padding: 7px 12px; border-radius: 7px;
-      border: 1px solid #1e293b; background: transparent;
-      color: #475569; cursor: pointer; font-size: 12px;
-      transition: all 0.15s;
-    }
-    .filter-btn.active { border-color: #3b82f6; background: rgba(59,130,246,0.15); color: #60a5fa; font-weight: 600; }
-
-    #add-btn {
-      display: flex; align-items: center; gap: 6px;
-      padding: 8px 14px;
-      background: linear-gradient(135deg, #3b82f6, #6366f1);
-      border: none; border-radius: 7px; color: #fff;
-      cursor: pointer; font-size: 12px; font-weight: 600;
-      transition: opacity 0.15s;
-    }
-    #add-btn:hover { opacity: 0.9; }
-
-    /* ── RESULT COUNT ── */
-    #result-count { padding: 8px 28px 0; font-size: 11px; color: #475569; min-height: 24px; }
-
-    /* ── TABLE ── */
-    #table-wrap {
-      padding: 12px 28px 40px;
-    }
-    .table-box {
-      background: #111827;
-      border: 1px solid #1e293b;
-      border-radius: 10px;
-      overflow: hidden;
-    }
-    .table-header, .table-row {
-      display: grid;
-      grid-template-columns: 2fr 1.5fr 130px 3fr 72px;
-      padding: 10px 18px;
-      align-items: center;
-    }
-    .table-header {
-      background: #0d1117;
-      border-bottom: 1px solid #1e293b;
-    }
-    .table-header span {
-      font-size: 10px; color: #475569;
-      text-transform: uppercase; letter-spacing: 0.08em; font-weight: 600;
-    }
-    .table-row {
-      border-bottom: 1px solid #1a2234;
-      transition: background 0.15s;
-    }
-    .table-row:last-child { border-bottom: none; }
-    .table-row:hover { background: rgba(59,130,246,0.05); }
-    .table-row:hover .row-actions { opacity: 1; }
-
-    .col-name    { font-size: 13px; font-weight: 600; color: #e2e8f0; }
-    .col-dataset { font-size: 11px; color: #64748b; }
-    .col-desc    { font-size: 11px; color: #64748b; line-height: 1.5; }
-
-    .row-actions { display: flex; gap: 5px; justify-content: flex-end; opacity: 0; transition: opacity 0.15s; }
-    .action-btn {
-      width: 28px; height: 28px; border-radius: 5px;
-      border: 1px solid; cursor: pointer; font-size: 13px;
-      display: flex; align-items: center; justify-content: center;
-    }
-    .edit-btn   { background: rgba(59,130,246,0.15);  border-color: rgba(59,130,246,0.3);  color: #60a5fa; }
-    .delete-btn { background: rgba(248,113,113,0.1);  border-color: rgba(248,113,113,0.2); color: #f87171; }
-
-    /* STATUS BADGE */
-    .badge {
-      display: inline-flex; align-items: center; gap: 5px;
-      padding: 3px 10px; border-radius: 20px;
-      font-size: 11px; font-weight: 600;
-      letter-spacing: 0.05em; text-transform: uppercase;
-      border: 1px solid;
-    }
-    .badge-dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
-    .badge-available   { color: #34d399; background: rgba(52,211,153,0.15);  border-color: rgba(52,211,153,0.3);  }
-    .badge-unavailable { color: #f87171; background: rgba(248,113,113,0.15); border-color: rgba(248,113,113,0.3); }
-    .badge-outdated    { color: #fbbf24; background: rgba(251,191,36,0.15);  border-color: rgba(251,191,36,0.3);  }
-
-    /* EMPTY STATE */
-    #empty-state {
-      padding: 48px; text-align: center; color: #475569; display: none;
-    }
-    #empty-state .empty-icon { font-size: 32px; margin-bottom: 12px; }
-    #empty-state p { font-size: 13px; }
-
-    /* ── MODAL ── */
-    #modal-overlay {
-      display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,0.75); z-index: 1000;
-      align-items: center; justify-content: center;
-      backdrop-filter: blur(4px);
-    }
-    #modal-overlay.show { display: flex; }
-    #modal {
-      background: #1a1f2e; border: 1px solid #2d3650;
-      border-radius: 12px; padding: 28px;
-      width: 480px; max-width: 90vw;
-      box-shadow: 0 25px 60px rgba(0,0,0,0.5);
-    }
-    #modal h3 { font-size: 16px; color: #e2e8f0; margin-bottom: 20px; }
-
-    .form-group { margin-bottom: 14px; }
-    .form-label {
-      display: block; font-size: 11px; color: #94a3b8;
-      text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 5px;
-    }
-    .form-input, .form-textarea {
-      width: 100%; padding: 8px 10px;
-      background: #111827; border: 1px solid #2d3650;
-      border-radius: 6px; color: #e2e8f0; font-size: 13px;
-      transition: border-color 0.2s;
-    }
-    .form-input:focus, .form-textarea:focus { outline: none; border-color: #3b82f6; }
-    .form-textarea { resize: vertical; min-height: 72px; }
-
-    .status-btns { display: flex; gap: 8px; }
-    .status-pick-btn {
-      flex: 1; padding: 8px 4px; border-radius: 6px;
-      border: 1px solid #2d3650; background: transparent;
-      color: #64748b; cursor: pointer; font-size: 11px; font-weight: 600;
-      transition: all 0.15s;
-    }
-    .status-pick-btn.selected-available   { border-color: #34d399; background: rgba(52,211,153,0.15);  color: #34d399; }
-    .status-pick-btn.selected-unavailable { border-color: #f87171; background: rgba(248,113,113,0.15); color: #f87171; }
-    .status-pick-btn.selected-outdated    { border-color: #fbbf24; background: rgba(251,191,36,0.15);  color: #fbbf24; }
-
-    .modal-footer { display: flex; gap: 10px; justify-content: flex-end; margin-top: 20px; }
-    .btn-cancel {
-      padding: 8px 16px; background: transparent;
-      border: 1px solid #2d3650; border-radius: 6px;
-      color: #64748b; cursor: pointer; font-size: 13px;
-    }
-    .btn-save {
-      padding: 8px 20px;
-      background: linear-gradient(135deg, #3b82f6, #6366f1);
-      border: none; border-radius: 6px; color: #fff;
-      cursor: pointer; font-size: 13px; font-weight: 600;
-    }
-    .btn-save:hover { opacity: 0.9; }
-
-    /* ── PAGE 2: SETTINGS ── */
-    #page-settings { padding: 20px 28px 40px; max-width: 820px; }
-
-    .setting-card {
-      background: #111827; border: 1px solid #1e293b;
-      border-radius: 10px; overflow: hidden; margin-bottom: 16px;
-    }
-    .card-header {
-      padding: 14px 18px; border-bottom: 1px solid #1e293b;
-      display: flex; align-items: center; gap: 10px;
-    }
-    .card-header-icon { font-size: 18px; }
-    .card-header-title { font-size: 14px; font-weight: 700; color: #e2e8f0; }
-    .card-badge {
-      margin-left: auto; font-size: 10px; padding: 2px 8px;
-      border-radius: 20px; font-weight: 600;
-      text-transform: uppercase; letter-spacing: 0.06em;
-      background: rgba(99,102,241,0.15); color: #818cf8;
-      border: 1px solid rgba(99,102,241,0.3);
-    }
-    .card-body { padding: 18px; }
-
-    .field-group { margin-bottom: 12px; }
-    .field-label {
-      font-size: 10px; color: #475569;
-      text-transform: uppercase; letter-spacing: 0.07em; margin-bottom: 4px;
-    }
-    .field-row { display: flex; align-items: center; gap: 8px; }
-    .field-val {
-      flex: 1; background: #0d1117; border: 1px solid #1e293b;
-      border-radius: 6px; padding: 7px 10px;
-      color: #a5f3fc; font-size: 13px;
-      font-family: 'JetBrains Mono', monospace;
-      word-break: break-all;
-    }
-    .copy-btn {
-      padding: 5px 10px; border-radius: 5px;
-      border: 1px solid rgba(59,130,246,0.3);
-      background: rgba(59,130,246,0.15); color: #60a5fa;
-      cursor: pointer; font-size: 11px; font-weight: 600;
-      white-space: nowrap; transition: all 0.15s;
-    }
-    .copy-btn.copied { border-color: rgba(52,211,153,0.4); background: rgba(52,211,153,0.15); color: #34d399; }
-
-    .card-note { font-size: 12px; color: #475569; margin-top: 4px; line-height: 1.5; }
-
-    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
-
-    /* STEPS */
-    .steps { margin-bottom: 16px; }
-    .step-item { display: flex; gap: 10px; margin-bottom: 10px; align-items: flex-start; }
-    .step-num {
-      min-width: 22px; height: 22px; border-radius: 50%;
-      background: linear-gradient(135deg, #3b82f6, #6366f1);
-      display: flex; align-items: center; justify-content: center;
-      font-size: 11px; font-weight: 700; color: #fff; margin-top: 1px;
-    }
-    .step-text { font-size: 13px; color: #94a3b8; line-height: 1.6; }
-    .step-text code {
-      background: #0d1117; padding: 1px 6px;
-      border-radius: 4px; color: #a5f3fc; font-size: 12px;
-    }
-
-    .db-chip {
-      flex: 1; background: #0d1117; border: 1px solid #1e293b;
-      border-radius: 6px; padding: 7px 10px;
-      color: #fbbf24; font-size: 13px;
-      font-family: 'JetBrains Mono', monospace;
-    }
-  </style>
-</head>
-<body>
-
-<!-- HEADER -->
-<div id="header">
-  <div class="logo">
-    <div class="logo-icon">🗺</div>
-    <div>
-      <div class="logo-title">GIS Layer Registry</div>
-      <div class="logo-sub">City of Montgomery · Internal Use Only</div>
-    </div>
-  </div>
-
-  <nav class="nav">
-    <button class="nav-btn active" data-page="layers"   onclick="switchPage('layers')">🗂 Layer Registry</button>
-    <button class="nav-btn"        data-page="settings" onclick="switchPage('settings')">⚙️ ArcGIS Settings</button>
-  </nav>
-
-  <div id="sync-status">⟳ Syncing...</div>
-</div>
-
-<!-- ══════════════════════════════════════════════ PAGE 1: LAYERS -->
-<div id="page-layers" class="page active">
-
-  <div id="toolbar">
-    <div class="search-wrap">
-      <span class="search-icon">⌕</span>
-      <input id="search-input" type="text" placeholder="Search layers, datasets, keywords..." oninput="onSearch()" />
-      <button id="search-clear" onclick="clearSearch()">×</button>
-    </div>
-
-    <div class="filter-btns">
-      <button class="filter-btn active" data-filter="all"         onclick="setFilter('all')">All</button>
-      <button class="filter-btn"        data-filter="available"   onclick="setFilter('available')">Available</button>
-      <button class="filter-btn"        data-filter="unavailable" onclick="setFilter('unavailable')">Unavailable</button>
-      <button class="filter-btn"        data-filter="outdated"    onclick="setFilter('outdated')">Outdated</button>
-    </div>
-
-    <button id="add-btn" onclick="openModal(null)">＋ Add Layer</button>
-  </div>
-
-  <div id="result-count"></div>
-
-  <div id="table-wrap">
-    <div class="table-box">
-      <div class="table-header">
-        <span>Layer Name</span>
-        <span>Dataset</span>
-        <span>Status</span>
-        <span>Description</span>
-        <span></span>
-      </div>
-      <div id="table-body"></div>
-      <div id="empty-state">
-        <div class="empty-icon">🔍</div>
-        <p>No layers found</p>
-        <p style="font-size:11px;margin-top:6px;color:#374151">Try a different keyword or add a new layer</p>
-      </div>
-    </div>
-  </div>
-</div>
-
-<!-- ══════════════════════════════════════════════ PAGE 2: SETTINGS -->
-<div id="page-settings" class="page">
-
-  <!-- WMTS -->
-  <div class="setting-card">
-    <div class="card-header">
-      <span class="card-header-icon">🛰</span>
-      <span class="card-header-title">Imagery — WMTS Server</span>
-      <span class="card-badge">Pictometry</span>
-    </div>
-    <div class="card-body">
-      <div class="field-group">
-        <div class="field-label">WMTS URL</div>
-        <div class="field-row">
-          <div class="field-val">https://svc.pictometry.com/Image/34DE7092-6D54-684C-9DB0-025C6448C5E0/wmts</div>
-          <button class="copy-btn" onclick="copyText(this, 'https://svc.pictometry.com/Image/34DE7092-6D54-684C-9DB0-025C6448C5E0/wmts')">Copy</button>
-        </div>
-      </div>
-      <div class="card-note">ArcGIS Pro → Add Data → From OGCE → WMTS → paste URL above</div>
-    </div>
-  </div>
-
-  <!-- County Server -->
-  <div class="setting-card">
-    <div class="card-header">
-      <span class="card-header-icon">🌐</span>
-      <span class="card-header-title">County Server (REST)</span>
-      <span class="card-badge">KCS GIS</span>
-    </div>
-    <div class="card-body">
-      <div class="field-group">
-        <div class="field-label">Server URL</div>
-        <div class="field-row">
-          <div class="field-val">https://al03portal.kcsgis.com/al03server/services</div>
-          <button class="copy-btn" onclick="copyText(this, 'https://al03portal.kcsgis.com/al03server/services')">Copy</button>
-        </div>
-      </div>
-      <div class="field-group">
-        <div class="field-label">Username</div>
-        <div class="field-row">
-          <div class="field-val">MontCity</div>
-          <button class="copy-btn" onclick="copyText(this, 'MontCity')">Copy</button>
-        </div>
-      </div>
-      <div class="field-group">
-        <div class="field-label">Password</div>
-        <div class="field-row">
-          <div class="field-val">MontCity03!*</div>
-          <button class="copy-btn" onclick="copyText(this, 'MontCity03!*')">Copy</button>
-        </div>
-      </div>
-      <div class="card-note">ArcGIS Pro → Add Data → From OGCE → ArcGIS Server → paste URL → enter credentials</div>
-    </div>
-  </div>
-
-  <!-- SDE -->
-  <div class="setting-card">
-    <div class="card-header">
-      <span class="card-header-icon">🗄</span>
-      <span class="card-header-title">City SDE — SQL Server Connection</span>
-      <span class="card-badge">Internal</span>
-    </div>
-    <div class="card-body">
-      <div class="steps">
-        <div class="step-item"><div class="step-num">1</div><div class="step-text">Get Access from IT</div></div>
-        <div class="step-item"><div class="step-num">2</div><div class="step-text">Instance box: <code>10.0.154.122</code></div></div>
-        <div class="step-item"><div class="step-num">3</div><div class="step-text">Authentication Type → <code>Operating system authentication</code> Select</div></div>
-        <div class="step-item"><div class="step-num">4</div><div class="step-text">Database → <code>CityMGM1</code> Select → OK</div></div>
-      </div>
-
-      <div class="field-group">
-        <div class="field-label">Instance</div>
-        <div class="field-row">
-          <div class="field-val">10.0.154.122</div>
-          <button class="copy-btn" onclick="copyText(this, '10.0.154.122')">Copy</button>
-        </div>
-      </div>
-      <div class="field-group">
-        <div class="field-label">Authentication</div>
-        <div class="field-val" style="color:#94a3b8">Operating system authentication</div>
-      </div>
-
-      <div class="two-col">
-        <div class="field-group" style="margin-bottom:0">
-          <div class="field-label">Database 1</div>
-          <div class="field-row">
-            <div class="db-chip">CityMGM1</div>
-            <button class="copy-btn" onclick="copyText(this, 'CityMGM1')">Copy</button>
-          </div>
-        </div>
-        <div class="field-group" style="margin-bottom:0">
-          <div class="field-label">Database 2</div>
-          <div class="field-row">
-            <div class="db-chip">CityMGM3</div>
-            <button class="copy-btn" onclick="copyText(this, 'CityMGM3')">Copy</button>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-</div><!-- /page-settings -->
-
-<!-- ══════════════════════════════════════════════ MODAL -->
-<div id="modal-overlay" onclick="closeModalIfBg(event)">
-  <div id="modal">
-    <h3 id="modal-title">＋ Add New Layer</h3>
-
-    <div class="form-group">
-      <label class="form-label">Layer Name</label>
-      <input class="form-input" id="f-name" type="text" placeholder="e.g. Muni Polling Location" />
-    </div>
-    <div class="form-group">
-      <label class="form-label">Dataset Name</label>
-      <input class="form-input" id="f-dataset" type="text" placeholder="e.g. POLLING_LOCATIONS" />
-    </div>
-    <div class="form-group">
-      <label class="form-label">Description (keywords)</label>
-      <textarea class="form-textarea" id="f-desc" placeholder="e.g. municipality polling location voter precinct district boundaries"></textarea>
-    </div>
-    <div class="form-group">
-      <label class="form-label">Status</label>
-      <div class="status-btns">
-        <button class="status-pick-btn selected-available" data-val="available"   onclick="pickStatus('available')">✓ Available</button>
-        <button class="status-pick-btn"                    data-val="unavailable" onclick="pickStatus('unavailable')">✗ Unavailable</button>
-        <button class="status-pick-btn"                    data-val="outdated"    onclick="pickStatus('outdated')">⚠ Outdated</button>
-      </div>
-    </div>
-
-    <div class="modal-footer">
-      <button class="btn-cancel" onclick="closeModal()">Cancel</button>
-      <button class="btn-save"   onclick="saveLayer()">Save</button>
-    </div>
-  </div>
-</div>
-
-<!-- ══════════════════════════════════════════════ SCRIPT -->
-<script>
-  // ── CONFIG ────────────────────────────────────────────────────────────
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyNuLYKfVfqklxt-a7uSXut6gpzmo5RHOwtsMvW8EBFL4_oRUrFPbiLEJk2wNX33oY/exec";
-
-  // ── STATE ─────────────────────────────────────────────────────────────
-  let layers       = [];
-  let nextId       = 1;
-  let currentFilter = "all";
-  let currentQuery  = "";
-  let editingId     = null;
-  let selectedStatus = "available";
-
-  // ── INIT ──────────────────────────────────────────────────────────────
-  async function init() {
-    showSync("syncing", "⟳ Loading...");
-    try {
-      const res  = await fetch(SCRIPT_URL + "?action=get");
-      const data = await res.json();
-      if (data.layers && data.layers.length > 0) {
-        layers = data.layers.map(l => ({ ...l, id: Number(l.id) }));
-        nextId = Math.max(...layers.map(l => l.id)) + 1;
-      } else {
-        // Sheets 비어있으면 그냥 빈 상태로 시작
-        layers = [];
-        nextId = 1;
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>GIS Layer Registry — City of Montgomery</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
       }
-      showSync("ok", "✓ Loaded");
-    } catch (err) {
-      console.warn("Sheets load failed", err);
-      layers = [];
-      nextId = 1;
-      showSync("err", "⚠ Offline mode");
-    }
-    renderTable();
-  }
 
-  // ── SYNC ──────────────────────────────────────────────────────────────
-  async function syncToSheet() {
-    showSync("syncing", "⟳ Saving...");
-    try {
-      await fetch(SCRIPT_URL, {
-        method: "POST",
-        body: JSON.stringify({ action: "set", layers }),
-      });
-      showSync("ok", "✓ Saved");
-    } catch {
-      showSync("err", "⚠ Save failed");
-    }
-  }
+      /* ── THEME VARIABLES ── */
+      :root {
+        --bg-base: #0d1117;
+        --bg-surface: #111827;
+        --bg-elevated: #1a1f2e;
+        --border-1: #1e293b;
+        --border-2: #1a2234;
+        --border-3: #2d3650;
+        --text-1: #e2e8f0;
+        --text-2: #94a3b8;
+        --text-3: #64748b;
+        --text-4: #475569;
+        --text-bright: #f1f5f9;
+        --code-color: #a5f3fc;
+        --chip-color: #fbbf24;
+      }
 
-  function showSync(type, msg) {
-    const el = document.getElementById("sync-status");
-    el.textContent = msg;
-    el.className = "show " + type;
-    if (type !== "syncing") setTimeout(() => { el.className = ""; }, 2500);
-  }
+      [data-theme="light"] {
+        --bg-base: #f1f5f9;
+        --bg-surface: #ffffff;
+        --bg-elevated: #ffffff;
+        --border-1: #e2e8f0;
+        --border-2: #e8edf4;
+        --border-3: #cbd5e1;
+        --text-1: #1e293b;
+        --text-2: #475569;
+        --text-3: #64748b;
+        --text-4: #94a3b8;
+        --text-bright: #0f172a;
+        --code-color: #0369a1;
+        --chip-color: #b45309;
+      }
 
-  // ── RENDER ────────────────────────────────────────────────────────────
-  function renderTable() {
-    const q = currentQuery.toLowerCase();
-    const filtered = layers.filter(l => {
-      const matchText = !q || [l.name, l.dataset, l.description].some(t => String(t).toLowerCase().includes(q));
-      const matchStatus = currentFilter === "all" || l.status === currentFilter;
-      return matchText && matchStatus;
-    });
+      body {
+        font-family: "JetBrains Mono", "Fira Code", monospace;
+        background: var(--bg-base);
+        color: var(--text-1);
+        min-height: 100vh;
+      }
 
-    const tbody  = document.getElementById("table-body");
-    const empty  = document.getElementById("empty-state");
-    const rcEl   = document.getElementById("result-count");
+      ::-webkit-scrollbar {
+        width: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: var(--bg-surface);
+      }
+      ::-webkit-scrollbar-thumb {
+        background: var(--border-3);
+        border-radius: 3px;
+      }
 
-    rcEl.textContent = q ? `${filtered.length} result${filtered.length !== 1 ? "s" : ""} for "${currentQuery}"` : "";
+      input,
+      textarea,
+      button,
+      select {
+        font-family: inherit;
+      }
 
-    if (filtered.length === 0) {
-      tbody.innerHTML = "";
-      empty.style.display = "block";
-      return;
-    }
-    empty.style.display = "none";
+      /* ── HEADER ── */
+      #header {
+        background: var(--bg-surface);
+        border-bottom: 1px solid var(--border-1);
+        padding: 0 28px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 56px;
+        position: sticky;
+        top: 0;
+        z-index: 100;
+      }
 
-    tbody.innerHTML = filtered.map(l => `
+      .logo {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .logo-icon {
+        width: 32px;
+        height: 32px;
+        background: linear-gradient(135deg, #3b82f6, #6366f1);
+        border-radius: 7px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+      }
+      .logo-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--text-bright);
+        letter-spacing: -0.02em;
+        line-height: 1.2;
+      }
+      .logo-sub {
+        font-size: 10px;
+        color: var(--text-4);
+      }
+
+      /* ── NAV TABS ── */
+      .nav {
+        display: flex;
+        gap: 4px;
+      }
+      .nav-btn {
+        padding: 6px 14px;
+        border-radius: 7px;
+        border: 1px solid transparent;
+        background: transparent;
+        color: var(--text-3);
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 400;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        transition: all 0.15s;
+      }
+      .nav-btn:hover {
+        background: rgba(59, 130, 246, 0.08);
+      }
+      .nav-btn.active {
+        border-color: #3b82f6;
+        background: rgba(59, 130, 246, 0.15);
+        color: #60a5fa;
+        font-weight: 600;
+      }
+
+      /* ── HEADER RIGHT ── */
+      .header-right {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      /* ── THEME TOGGLE ── */
+      #theme-toggle {
+        width: 32px;
+        height: 32px;
+        border-radius: 7px;
+        border: 1px solid var(--border-3);
+        background: transparent;
+        cursor: pointer;
+        font-size: 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: all 0.15s;
+      }
+      #theme-toggle:hover {
+        background: rgba(59, 130, 246, 0.08);
+        border-color: #3b82f6;
+      }
+
+      /* ── SYNC STATUS ── */
+      #sync-status {
+        font-size: 11px;
+        padding: 4px 10px;
+        border-radius: 6px;
+        transition: all 0.3s;
+        opacity: 0;
+      }
+      #sync-status.show {
+        opacity: 1;
+      }
+      #sync-status.syncing {
+        color: #94a3b8;
+        background: rgba(148, 163, 184, 0.1);
+      }
+      #sync-status.ok {
+        color: #34d399;
+        background: rgba(52, 211, 153, 0.1);
+      }
+      #sync-status.err {
+        color: #f87171;
+        background: rgba(248, 113, 113, 0.1);
+      }
+
+      /* ── PAGES ── */
+      .page {
+        display: none;
+      }
+      .page.active {
+        display: block;
+      }
+
+      /* ── TOOLBAR ── */
+      #toolbar {
+        padding: 18px 28px 0;
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        flex-wrap: wrap;
+      }
+
+      .search-wrap {
+        position: relative;
+        flex: 1;
+        min-width: 220px;
+        max-width: 480px;
+      }
+      .search-icon {
+        position: absolute;
+        left: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-4);
+        font-size: 16px;
+        pointer-events: none;
+      }
+      #search-input {
+        width: 100%;
+        padding: 9px 36px;
+        background: var(--bg-surface);
+        border: 1px solid var(--border-1);
+        border-radius: 8px;
+        color: var(--text-1);
+        font-size: 13px;
+        transition: border-color 0.2s;
+      }
+      #search-input:focus {
+        outline: none;
+        border-color: #3b82f6;
+      }
+      #search-clear {
+        position: absolute;
+        right: 10px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: var(--text-4);
+        cursor: pointer;
+        font-size: 18px;
+        line-height: 1;
+        display: none;
+      }
+
+      .filter-btns {
+        display: flex;
+        gap: 6px;
+      }
+      .filter-btn {
+        padding: 7px 12px;
+        border-radius: 7px;
+        border: 1px solid var(--border-1);
+        background: transparent;
+        color: var(--text-4);
+        cursor: pointer;
+        font-size: 12px;
+        transition: all 0.15s;
+      }
+      .filter-btn.active {
+        border-color: #3b82f6;
+        background: rgba(59, 130, 246, 0.15);
+        color: #60a5fa;
+        font-weight: 600;
+      }
+
+      #add-btn {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 14px;
+        background: linear-gradient(135deg, #3b82f6, #6366f1);
+        border: none;
+        border-radius: 7px;
+        color: #fff;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: 600;
+        transition: opacity 0.15s;
+      }
+      #add-btn:hover {
+        opacity: 0.9;
+      }
+
+      /* ── RESULT COUNT ── */
+      #result-count {
+        padding: 8px 28px 0;
+        font-size: 11px;
+        color: var(--text-4);
+        min-height: 24px;
+      }
+
+      /* ── TABLE ── */
+      #table-wrap {
+        padding: 12px 28px 40px;
+      }
+      .table-box {
+        background: var(--bg-surface);
+        border: 1px solid var(--border-1);
+        border-radius: 10px;
+        overflow: hidden;
+      }
+      .table-header,
+      .table-row {
+        display: grid;
+        grid-template-columns: 2fr 1.5fr 130px 3fr 72px;
+        padding: 10px 18px;
+        align-items: center;
+      }
+      .table-header {
+        background: var(--bg-base);
+        border-bottom: 1px solid var(--border-1);
+      }
+      .table-header span {
+        font-size: 10px;
+        color: var(--text-4);
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 600;
+      }
+      .table-row {
+        border-bottom: 1px solid var(--border-2);
+        transition: background 0.15s;
+      }
+      .table-row:last-child {
+        border-bottom: none;
+      }
+      .table-row:hover {
+        background: rgba(59, 130, 246, 0.05);
+      }
+      .table-row:hover .row-actions {
+        opacity: 1;
+      }
+
+      .col-name {
+        font-size: 13px;
+        font-weight: 600;
+        color: var(--text-1);
+      }
+      .col-dataset {
+        font-size: 11px;
+        color: var(--text-3);
+      }
+      .col-desc {
+        font-size: 11px;
+        color: var(--text-3);
+        line-height: 1.5;
+      }
+
+      .row-actions {
+        display: flex;
+        gap: 5px;
+        justify-content: flex-end;
+        opacity: 0;
+        transition: opacity 0.15s;
+      }
+      .action-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 5px;
+        border: 1px solid;
+        cursor: pointer;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .edit-btn {
+        background: rgba(59, 130, 246, 0.15);
+        border-color: rgba(59, 130, 246, 0.3);
+        color: #60a5fa;
+      }
+      .delete-btn {
+        background: rgba(248, 113, 113, 0.1);
+        border-color: rgba(248, 113, 113, 0.2);
+        color: #f87171;
+      }
+
+      /* STATUS BADGE */
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        padding: 3px 10px;
+        border-radius: 20px;
+        font-size: 11px;
+        font-weight: 600;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        border: 1px solid;
+      }
+      .badge-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+      .badge-available {
+        color: #34d399;
+        background: rgba(52, 211, 153, 0.15);
+        border-color: rgba(52, 211, 153, 0.3);
+      }
+      .badge-unavailable {
+        color: #f87171;
+        background: rgba(248, 113, 113, 0.15);
+        border-color: rgba(248, 113, 113, 0.3);
+      }
+      .badge-outdated {
+        color: #fbbf24;
+        background: rgba(251, 191, 36, 0.15);
+        border-color: rgba(251, 191, 36, 0.3);
+      }
+      .badge-archived {
+        color: #64748b;
+        background: rgba(100, 116, 139, 0.12);
+        border-color: rgba(100, 116, 139, 0.25);
+      }
+
+      /* EMPTY STATE */
+      #empty-state {
+        padding: 48px;
+        text-align: center;
+        color: var(--text-4);
+        display: none;
+      }
+      #empty-state .empty-icon {
+        font-size: 32px;
+        margin-bottom: 12px;
+      }
+      #empty-state p {
+        font-size: 13px;
+      }
+
+      /* ── MODAL ── */
+      #modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.75);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+        backdrop-filter: blur(4px);
+      }
+      #modal-overlay.show {
+        display: flex;
+      }
+      #modal {
+        background: var(--bg-elevated);
+        border: 1px solid var(--border-3);
+        border-radius: 12px;
+        padding: 28px;
+        width: 480px;
+        max-width: 90vw;
+        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.5);
+      }
+      #modal h3 {
+        font-size: 16px;
+        color: var(--text-1);
+        margin-bottom: 20px;
+      }
+
+      .form-group {
+        margin-bottom: 14px;
+      }
+      .form-label {
+        display: block;
+        font-size: 11px;
+        color: var(--text-2);
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        margin-bottom: 5px;
+      }
+      .form-input,
+      .form-textarea {
+        width: 100%;
+        padding: 8px 10px;
+        background: var(--bg-surface);
+        border: 1px solid var(--border-3);
+        border-radius: 6px;
+        color: var(--text-1);
+        font-size: 13px;
+        transition: border-color 0.2s;
+      }
+      .form-input:focus,
+      .form-textarea:focus {
+        outline: none;
+        border-color: #3b82f6;
+      }
+      .form-textarea {
+        resize: vertical;
+        min-height: 72px;
+      }
+
+      .status-btns {
+        display: flex;
+        gap: 8px;
+      }
+      .status-pick-btn {
+        flex: 1;
+        padding: 8px 4px;
+        border-radius: 6px;
+        border: 1px solid var(--border-3);
+        background: transparent;
+        color: var(--text-3);
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 600;
+        transition: all 0.15s;
+      }
+      .status-pick-btn.selected-available {
+        border-color: #34d399;
+        background: rgba(52, 211, 153, 0.15);
+        color: #34d399;
+      }
+      .status-pick-btn.selected-unavailable {
+        border-color: #f87171;
+        background: rgba(248, 113, 113, 0.15);
+        color: #f87171;
+      }
+      .status-pick-btn.selected-outdated {
+        border-color: #fbbf24;
+        background: rgba(251, 191, 36, 0.15);
+        color: #fbbf24;
+      }
+      .status-pick-btn.selected-archived {
+        border-color: #64748b;
+        background: rgba(100, 116, 139, 0.15);
+        color: #94a3b8;
+      }
+
+      .modal-footer {
+        display: flex;
+        gap: 10px;
+        justify-content: flex-end;
+        margin-top: 20px;
+      }
+      .btn-cancel {
+        padding: 8px 16px;
+        background: transparent;
+        border: 1px solid var(--border-3);
+        border-radius: 6px;
+        color: var(--text-3);
+        cursor: pointer;
+        font-size: 13px;
+      }
+      .btn-save {
+        padding: 8px 20px;
+        background: linear-gradient(135deg, #3b82f6, #6366f1);
+        border: none;
+        border-radius: 6px;
+        color: #fff;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+      }
+      .btn-save:hover {
+        opacity: 0.9;
+      }
+
+      /* ── PAGE 2: SETTINGS ── */
+      #page-settings {
+        padding: 20px 28px 40px;
+        max-width: 820px;
+      }
+
+      .setting-card {
+        background: var(--bg-surface);
+        border: 1px solid var(--border-1);
+        border-radius: 10px;
+        overflow: hidden;
+        margin-bottom: 16px;
+      }
+      .card-header {
+        padding: 14px 18px;
+        border-bottom: 1px solid var(--border-1);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+      .card-header-icon {
+        font-size: 18px;
+      }
+      .card-header-title {
+        font-size: 14px;
+        font-weight: 700;
+        color: var(--text-1);
+      }
+      .card-badge {
+        margin-left: auto;
+        font-size: 10px;
+        padding: 2px 8px;
+        border-radius: 20px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        background: rgba(99, 102, 241, 0.15);
+        color: #818cf8;
+        border: 1px solid rgba(99, 102, 241, 0.3);
+      }
+      .card-body {
+        padding: 18px;
+      }
+
+      .field-group {
+        margin-bottom: 12px;
+      }
+      .field-label {
+        font-size: 10px;
+        color: var(--text-4);
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        margin-bottom: 4px;
+      }
+      .field-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      .field-val {
+        flex: 1;
+        background: var(--bg-base);
+        border: 1px solid var(--border-1);
+        border-radius: 6px;
+        padding: 7px 10px;
+        color: var(--code-color);
+        font-size: 13px;
+        font-family: "JetBrains Mono", monospace;
+        word-break: break-all;
+      }
+      .copy-btn {
+        padding: 5px 10px;
+        border-radius: 5px;
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        background: rgba(59, 130, 246, 0.15);
+        color: #60a5fa;
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: 600;
+        white-space: nowrap;
+        transition: all 0.15s;
+      }
+      .copy-btn.copied {
+        border-color: rgba(52, 211, 153, 0.4);
+        background: rgba(52, 211, 153, 0.15);
+        color: #34d399;
+      }
+
+      .card-note {
+        font-size: 12px;
+        color: var(--text-4);
+        margin-top: 4px;
+        line-height: 1.5;
+      }
+
+      .two-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-top: 12px;
+      }
+
+      /* STEPS */
+      .steps {
+        margin-bottom: 16px;
+      }
+      .step-item {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 10px;
+        align-items: flex-start;
+      }
+      .step-num {
+        min-width: 22px;
+        height: 22px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #3b82f6, #6366f1);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 11px;
+        font-weight: 700;
+        color: #fff;
+        margin-top: 1px;
+      }
+      .step-text {
+        font-size: 13px;
+        color: var(--text-2);
+        line-height: 1.6;
+      }
+      .step-text code {
+        background: var(--bg-base);
+        padding: 1px 6px;
+        border-radius: 4px;
+        color: var(--code-color);
+        font-size: 12px;
+      }
+
+      .db-chip {
+        flex: 1;
+        background: var(--bg-base);
+        border: 1px solid var(--border-1);
+        border-radius: 6px;
+        padding: 7px 10px;
+        color: var(--chip-color);
+        font-size: 13px;
+        font-family: "JetBrains Mono", monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <!-- HEADER -->
+    <div id="header">
+      <div class="logo">
+        <div class="logo-icon">🗺</div>
+        <div>
+          <div class="logo-title">GIS Layer Registry</div>
+          <div class="logo-sub">City of Montgomery · Internal Use Only</div>
+        </div>
+      </div>
+
+      <nav class="nav">
+        <button
+          class="nav-btn active"
+          data-page="layers"
+          onclick="switchPage('layers')"
+        >
+          🗂 Layer Registry
+        </button>
+        <button
+          class="nav-btn"
+          data-page="settings"
+          onclick="switchPage('settings')"
+        >
+          ⚙️ ArcGIS Settings
+        </button>
+      </nav>
+
+      <div class="header-right">
+        <button
+          id="theme-toggle"
+          onclick="toggleTheme()"
+          title="Toggle light/dark mode"
+        >
+          ☀️
+        </button>
+        <div id="sync-status">⟳ Syncing...</div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════ PAGE 1: LAYERS -->
+    <div id="page-layers" class="page active">
+      <div id="toolbar">
+        <div class="search-wrap">
+          <span class="search-icon">⌕</span>
+          <input
+            id="search-input"
+            type="text"
+            placeholder="Search layers, datasets, keywords..."
+            oninput="onSearch()"
+          />
+          <button id="search-clear" onclick="clearSearch()">×</button>
+        </div>
+
+        <div class="filter-btns">
+          <button
+            class="filter-btn active"
+            data-filter="all"
+            onclick="setFilter('all')"
+          >
+            All
+          </button>
+          <button
+            class="filter-btn"
+            data-filter="available"
+            onclick="setFilter('available')"
+          >
+            Available
+          </button>
+          <button
+            class="filter-btn"
+            data-filter="unavailable"
+            onclick="setFilter('unavailable')"
+          >
+            Unavailable
+          </button>
+          <button
+            class="filter-btn"
+            data-filter="outdated"
+            onclick="setFilter('outdated')"
+          >
+            Outdated
+          </button>
+          <button
+            class="filter-btn"
+            data-filter="archived"
+            onclick="setFilter('archived')"
+            style="color: #64748b"
+          >
+            📦 Archived
+          </button>
+        </div>
+
+        <button id="add-btn" onclick="openModal(null)">＋ Add Layer</button>
+      </div>
+
+      <div id="result-count"></div>
+      <div style="padding: 0 28px 0; min-height: 20px">
+        <span
+          id="archived-hint"
+          style="
+            display: none;
+            font-size: 11px;
+            color: #475569;
+            cursor: pointer;
+          "
+          onclick="setFilter('archived')"
+        ></span>
+      </div>
+
+      <div id="table-wrap">
+        <div class="table-box">
+          <div class="table-header">
+            <span>Layer Name</span>
+            <span>Dataset</span>
+            <span>Status</span>
+            <span>Description</span>
+            <span></span>
+          </div>
+          <div id="table-body"></div>
+          <div id="empty-state">
+            <div class="empty-icon">🔍</div>
+            <p>No layers found</p>
+            <p style="font-size: 11px; margin-top: 6px">
+              Try a different keyword or add a new layer
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════ PAGE 2: SETTINGS -->
+    <div id="page-settings" class="page">
+      <!-- WMTS -->
+      <div class="setting-card">
+        <div class="card-header">
+          <span class="card-header-icon">🛰</span>
+          <span class="card-header-title">Imagery — WMTS Server</span>
+          <span class="card-badge">Pictometry</span>
+        </div>
+        <div class="card-body">
+          <div class="field-group">
+            <div class="field-label">WMTS URL</div>
+            <div class="field-row">
+              <div class="field-val">
+                https://svc.pictometry.com/Image/34DE7092-6D54-684C-9DB0-025C6448C5E0/wmts
+              </div>
+              <button
+                class="copy-btn"
+                onclick="
+                  copyText(
+                    this,
+                    'https://svc.pictometry.com/Image/34DE7092-6D54-684C-9DB0-025C6448C5E0/wmts',
+                  )
+                "
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+          <div class="card-note">
+            ArcGIS Pro → Add Data → From OGCE → WMTS → paste URL above
+          </div>
+        </div>
+      </div>
+
+      <!-- County Server -->
+      <div class="setting-card">
+        <div class="card-header">
+          <span class="card-header-icon">🌐</span>
+          <span class="card-header-title">County Server (REST)</span>
+          <span class="card-badge">KCS GIS</span>
+        </div>
+        <div class="card-body">
+          <div class="field-group">
+            <div class="field-label">Server URL</div>
+            <div class="field-row">
+              <div class="field-val">
+                https://al03portal.kcsgis.com/al03server/services
+              </div>
+              <button
+                class="copy-btn"
+                onclick="
+                  copyText(
+                    this,
+                    'https://al03portal.kcsgis.com/al03server/services',
+                  )
+                "
+              >
+                Copy
+              </button>
+            </div>
+          </div>
+          <div class="field-group">
+            <div class="field-label">Username</div>
+            <div class="field-row">
+              <div class="field-val">MontCity</div>
+              <button class="copy-btn" onclick="copyText(this, 'MontCity')">
+                Copy
+              </button>
+            </div>
+          </div>
+          <div class="field-group">
+            <div class="field-label">Password</div>
+            <div class="field-row">
+              <div class="field-val">MontCity03!*</div>
+              <button class="copy-btn" onclick="copyText(this, 'MontCity03!*')">
+                Copy
+              </button>
+            </div>
+          </div>
+          <div class="card-note">
+            ArcGIS Pro → Add Data → From OGCE → ArcGIS Server → paste URL →
+            enter credentials
+          </div>
+        </div>
+      </div>
+
+      <!-- SDE -->
+      <div class="setting-card">
+        <div class="card-header">
+          <span class="card-header-icon">🗄</span>
+          <span class="card-header-title"
+            >City SDE — SQL Server Connection</span
+          >
+          <span class="card-badge">Internal</span>
+        </div>
+        <div class="card-body">
+          <div class="steps">
+            <div class="step-item">
+              <div class="step-num">0</div>
+              <div class="step-text">Get SQL Access from IT</div>
+            </div>
+            <div class="step-item">
+              <div class="step-num">1</div>
+              <div class="step-text">
+                Instance box: <code>10.0.154.122</code>
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-num">2</div>
+              <div class="step-text">
+                Authentication Type →
+                <code>Operating system authentication</code> Select
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-num">3</div>
+              <div class="step-text">
+                Database → <code>CityMGM1</code> Select → OK
+              </div>
+            </div>
+            <div class="step-item"></div>
+          </div>
+
+          <div class="field-group">
+            <div class="field-label">Instance</div>
+            <div class="field-row">
+              <div class="field-val">10.0.154.122</div>
+              <button class="copy-btn" onclick="copyText(this, '10.0.154.122')">
+                Copy
+              </button>
+            </div>
+          </div>
+          <div class="field-group">
+            <div class="field-label">Authentication</div>
+            <div class="field-val" style="color: var(--text-2)">
+              Operating system authentication
+            </div>
+          </div>
+
+          <div class="two-col">
+            <div class="field-group" style="margin-bottom: 0">
+              <div class="field-label">Database 1</div>
+              <div class="field-row">
+                <div class="db-chip">CityMGM1</div>
+                <button class="copy-btn" onclick="copyText(this, 'CityMGM1')">
+                  Copy
+                </button>
+              </div>
+            </div>
+            <div class="field-group" style="margin-bottom: 0">
+              <div class="field-label">Database 2</div>
+              <div class="field-row">
+                <div class="db-chip">CityMGM3</div>
+                <button class="copy-btn" onclick="copyText(this, 'CityMGM3')">
+                  Copy
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- /page-settings -->
+
+    <!-- ══════════════════════════════════════════════ MODAL -->
+    <div id="modal-overlay" onclick="closeModalIfBg(event)">
+      <div id="modal">
+        <h3 id="modal-title">＋ Add New Layer</h3>
+
+        <div class="form-group">
+          <label class="form-label">Layer Name</label>
+          <input
+            class="form-input"
+            id="f-name"
+            type="text"
+            placeholder="e.g. Muni Polling Location"
+          />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Dataset Name</label>
+          <input
+            class="form-input"
+            id="f-dataset"
+            type="text"
+            placeholder="e.g. POLLING_LOCATIONS"
+          />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Description (keywords)</label>
+          <textarea
+            class="form-textarea"
+            id="f-desc"
+            placeholder="e.g. municipality polling location voter precinct district boundaries"
+          ></textarea>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Status</label>
+          <div class="status-btns">
+            <button
+              class="status-pick-btn selected-available"
+              data-val="available"
+              onclick="pickStatus('available')"
+            >
+              ✓ Available
+            </button>
+            <button
+              class="status-pick-btn"
+              data-val="unavailable"
+              onclick="pickStatus('unavailable')"
+            >
+              ✗ Unavailable
+            </button>
+            <button
+              class="status-pick-btn"
+              data-val="outdated"
+              onclick="pickStatus('outdated')"
+            >
+              ⚠ Outdated
+            </button>
+            <button
+              class="status-pick-btn"
+              data-val="archived"
+              onclick="pickStatus('archived')"
+            >
+              📦 Archived
+            </button>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button class="btn-cancel" onclick="closeModal()">Cancel</button>
+          <button class="btn-save" onclick="saveLayer()">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════ SCRIPT -->
+    <script>
+      // ── CONFIG ────────────────────────────────────────────────────────────
+      const SCRIPT_URL =
+        "https://script.google.com/macros/s/AKfycbyNuLYKfVfqklxt-a7uSXut6gpzmo5RHOwtsMvW8EBFL4_oRUrFPbiLEJk2wNX33oY/exec";
+
+      // ── STATE ─────────────────────────────────────────────────────────────
+      let layers = [];
+      let nextId = 1;
+      let currentFilter = "all";
+      let currentQuery = "";
+      let editingId = null;
+      let selectedStatus = "available";
+
+      // ── THEME ─────────────────────────────────────────────────────────────
+      function toggleTheme() {
+        const isLight =
+          document.documentElement.getAttribute("data-theme") === "light";
+        applyTheme(isLight ? "dark" : "light");
+      }
+
+      function applyTheme(theme) {
+        if (theme === "light") {
+          document.documentElement.setAttribute("data-theme", "light");
+          document.getElementById("theme-toggle").textContent = "🌙";
+        } else {
+          document.documentElement.removeAttribute("data-theme");
+          document.getElementById("theme-toggle").textContent = "☀️";
+        }
+        localStorage.setItem("gis-theme", theme);
+      }
+
+      // Apply saved theme immediately
+      applyTheme(localStorage.getItem("gis-theme") || "dark");
+
+      // ── INIT ──────────────────────────────────────────────────────────────
+      async function init() {
+        showSync("syncing", "⟳ Loading...");
+        try {
+          const res = await fetch(SCRIPT_URL + "?action=get");
+          const data = await res.json();
+          if (data.layers && data.layers.length > 0) {
+            layers = data.layers.map((l) => ({ ...l, id: Number(l.id) }));
+            nextId = Math.max(...layers.map((l) => l.id)) + 1;
+          } else {
+            // Sheets 비어있으면 그냥 빈 상태로 시작
+            layers = [];
+            nextId = 1;
+          }
+          showSync("ok", "✓ Loaded");
+        } catch (err) {
+          console.warn("Sheets load failed", err);
+          layers = [];
+          nextId = 1;
+          showSync("err", "⚠ Offline mode");
+        }
+        renderTable();
+      }
+
+      // ── SYNC ──────────────────────────────────────────────────────────────
+      async function syncToSheet() {
+        showSync("syncing", "⟳ Saving...");
+        try {
+          await fetch(SCRIPT_URL, {
+            method: "POST",
+            body: JSON.stringify({ action: "set", layers }),
+          });
+          showSync("ok", "✓ Saved");
+        } catch {
+          showSync("err", "⚠ Save failed");
+        }
+      }
+
+      function showSync(type, msg) {
+        const el = document.getElementById("sync-status");
+        el.textContent = msg;
+        el.className = "show " + type;
+        if (type !== "syncing")
+          setTimeout(() => {
+            el.className = "";
+          }, 2500);
+      }
+
+      // ── RENDER ────────────────────────────────────────────────────────────
+      function renderTable() {
+        const q = currentQuery.toLowerCase();
+        const filtered = layers.filter((l) => {
+          const matchText =
+            !q ||
+            [l.name, l.dataset, l.description].some((t) =>
+              String(t).toLowerCase().includes(q),
+            );
+          // archived는 명시적으로 "archived" 필터 선택했을 때만 보임 (all에서도 숨김)
+          if (l.status === "archived" && currentFilter !== "archived")
+            return false;
+          if (currentFilter === "archived")
+            return l.status === "archived" && matchText;
+          if (currentFilter === "all") return matchText;
+          return l.status === currentFilter && matchText;
+        });
+
+        const tbody = document.getElementById("table-body");
+        const empty = document.getElementById("empty-state");
+        const rcEl = document.getElementById("result-count");
+
+        rcEl.textContent = q
+          ? `${filtered.length} result${filtered.length !== 1 ? "s" : ""} for "${currentQuery}"`
+          : "";
+
+        const archivedCount = layers.filter(
+          (l) => l.status === "archived",
+        ).length;
+        const hintEl = document.getElementById("archived-hint");
+        if (hintEl) {
+          hintEl.style.display =
+            currentFilter !== "archived" && archivedCount > 0
+              ? "inline"
+              : "none";
+          hintEl.textContent = `📦 ${archivedCount} archived layer${archivedCount !== 1 ? "s" : ""} hidden — click to view`;
+        }
+
+        if (filtered.length === 0) {
+          tbody.innerHTML = "";
+          empty.style.display = "block";
+          return;
+        }
+        empty.style.display = "none";
+
+        tbody.innerHTML = filtered
+          .map(
+            (l) => `
       <div class="table-row">
         <div class="col-name">${esc(l.name)}</div>
         <div class="col-dataset">${esc(l.dataset)}</div>
@@ -594,112 +1228,174 @@
           <button class="action-btn edit-btn"   onclick="openModal(${l.id})" title="Edit">✏</button>
           <button class="action-btn delete-btn" onclick="deleteLayer(${l.id})" title="Delete">✕</button>
         </div>
-      </div>`).join("");
-  }
+      </div>`,
+          )
+          .join("");
+      }
 
-  function badgeHTML(status) {
-    const map = {
-      available:   { cls:"badge-available",   dot:"#34d399", label:"Available"   },
-      unavailable: { cls:"badge-unavailable", dot:"#f87171", label:"Unavailable" },
-      outdated:    { cls:"badge-outdated",    dot:"#fbbf24", label:"Outdated"    },
-    };
-    const c = map[status] || map.unavailable;
-    return `<span class="badge ${c.cls}"><span class="badge-dot" style="background:${c.dot}"></span>${c.label}</span>`;
-  }
+      function badgeHTML(status) {
+        const map = {
+          available: {
+            cls: "badge-available",
+            dot: "#34d399",
+            label: "Available",
+          },
+          unavailable: {
+            cls: "badge-unavailable",
+            dot: "#f87171",
+            label: "Unavailable",
+          },
+          outdated: {
+            cls: "badge-outdated",
+            dot: "#fbbf24",
+            label: "Outdated",
+          },
+          archived: {
+            cls: "badge-archived",
+            dot: "#64748b",
+            label: "Archived",
+          },
+        };
+        const c = map[status] || map.unavailable;
+        return `<span class="badge ${c.cls}"><span class="badge-dot" style="background:${c.dot}"></span>${c.label}</span>`;
+      }
 
-  function esc(str) {
-    return String(str || "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
-  }
+      function esc(str) {
+        return String(str || "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;");
+      }
 
-  // ── SEARCH & FILTER ───────────────────────────────────────────────────
-  function onSearch() {
-    currentQuery = document.getElementById("search-input").value;
-    document.getElementById("search-clear").style.display = currentQuery ? "block" : "none";
-    renderTable();
-  }
+      // ── SEARCH & FILTER ───────────────────────────────────────────────────
+      function onSearch() {
+        currentQuery = document.getElementById("search-input").value;
+        document.getElementById("search-clear").style.display = currentQuery
+          ? "block"
+          : "none";
+        renderTable();
+      }
 
-  function clearSearch() {
-    document.getElementById("search-input").value = "";
-    currentQuery = "";
-    document.getElementById("search-clear").style.display = "none";
-    renderTable();
-  }
+      function clearSearch() {
+        document.getElementById("search-input").value = "";
+        currentQuery = "";
+        document.getElementById("search-clear").style.display = "none";
+        renderTable();
+      }
 
-  function setFilter(val) {
-    currentFilter = val;
-    document.querySelectorAll(".filter-btn").forEach(b => b.classList.toggle("active", b.dataset.filter === val));
-    renderTable();
-  }
+      function setFilter(val) {
+        currentFilter = val;
+        document
+          .querySelectorAll(".filter-btn")
+          .forEach((b) =>
+            b.classList.toggle("active", b.dataset.filter === val),
+          );
+        renderTable();
+      }
 
-  // ── MODAL ─────────────────────────────────────────────────────────────
-  function openModal(id) {
-    editingId = id;
-    const layer = id ? layers.find(l => l.id === id) : null;
-    document.getElementById("modal-title").textContent = id ? "✏️ Edit Layer" : "＋ Add New Layer";
-    document.getElementById("f-name").value    = layer ? layer.name        : "";
-    document.getElementById("f-dataset").value = layer ? layer.dataset     : "";
-    document.getElementById("f-desc").value    = layer ? layer.description : "";
-    pickStatus(layer ? layer.status : "available");
-    document.getElementById("modal-overlay").classList.add("show");
-  }
+      // ── MODAL ─────────────────────────────────────────────────────────────
+      function openModal(id) {
+        editingId = id;
+        const layer = id ? layers.find((l) => l.id === id) : null;
+        document.getElementById("modal-title").textContent = id
+          ? "✏️ Edit Layer"
+          : "＋ Add New Layer";
+        document.getElementById("f-name").value = layer ? layer.name : "";
+        document.getElementById("f-dataset").value = layer ? layer.dataset : "";
+        document.getElementById("f-desc").value = layer
+          ? layer.description
+          : "";
+        pickStatus(layer ? layer.status : "available");
+        document.getElementById("modal-overlay").classList.add("show");
+      }
 
-  function closeModal() {
-    document.getElementById("modal-overlay").classList.remove("show");
-  }
+      function closeModal() {
+        document.getElementById("modal-overlay").classList.remove("show");
+      }
 
-  function closeModalIfBg(e) {
-    if (e.target === document.getElementById("modal-overlay")) closeModal();
-  }
+      function closeModalIfBg(e) {
+        if (e.target === document.getElementById("modal-overlay")) closeModal();
+      }
 
-  function pickStatus(val) {
-    selectedStatus = val;
-    document.querySelectorAll(".status-pick-btn").forEach(b => {
-      b.className = "status-pick-btn" + (b.dataset.val === val ? " selected-" + val : "");
-    });
-  }
+      function pickStatus(val) {
+        selectedStatus = val;
+        document.querySelectorAll(".status-pick-btn").forEach((b) => {
+          b.className =
+            "status-pick-btn" +
+            (b.dataset.val === val ? " selected-" + val : "");
+        });
+      }
 
-  async function saveLayer() {
-    const name    = document.getElementById("f-name").value.trim();
-    const dataset = document.getElementById("f-dataset").value.trim();
-    const desc    = document.getElementById("f-desc").value.trim();
-    if (!name || !dataset) { alert("Require: Layer Name, Dataset Name."); return; }
+      async function saveLayer() {
+        const name = document.getElementById("f-name").value.trim();
+        const dataset = document.getElementById("f-dataset").value.trim();
+        const desc = document.getElementById("f-desc").value.trim();
+        if (!name || !dataset) {
+          alert("Layer Name과 Dataset Name은 필수입니다.");
+          return;
+        }
 
-    if (editingId) {
-      layers = layers.map(l => l.id === editingId ? { ...l, name, dataset, status: selectedStatus, description: desc } : l);
-    } else {
-      layers.push({ id: nextId++, name, dataset, status: selectedStatus, description: desc });
-    }
+        if (editingId) {
+          layers = layers.map((l) =>
+            l.id === editingId
+              ? {
+                  ...l,
+                  name,
+                  dataset,
+                  status: selectedStatus,
+                  description: desc,
+                }
+              : l,
+          );
+        } else {
+          layers.push({
+            id: nextId++,
+            name,
+            dataset,
+            status: selectedStatus,
+            description: desc,
+          });
+        }
 
-    closeModal();
-    renderTable();
-    await syncToSheet();
-  }
+        closeModal();
+        renderTable();
+        await syncToSheet();
+      }
 
-  async function deleteLayer(id) {
-    if (!confirm("Delete this layer?")) return;
-    layers = layers.filter(l => l.id !== id);
-    renderTable();
-    await syncToSheet();
-  }
+      async function deleteLayer(id) {
+        if (!confirm("이 레이어를 삭제할까요?")) return;
+        layers = layers.filter((l) => l.id !== id);
+        renderTable();
+        await syncToSheet();
+      }
 
-  // ── PAGE SWITCH ───────────────────────────────────────────────────────
-  function switchPage(page) {
-    document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
-    document.getElementById("page-" + page).classList.add("active");
-    document.querySelectorAll(".nav-btn").forEach(b => b.classList.toggle("active", b.dataset.page === page));
-  }
+      // ── PAGE SWITCH ───────────────────────────────────────────────────────
+      function switchPage(page) {
+        document
+          .querySelectorAll(".page")
+          .forEach((p) => p.classList.remove("active"));
+        document.getElementById("page-" + page).classList.add("active");
+        document
+          .querySelectorAll(".nav-btn")
+          .forEach((b) =>
+            b.classList.toggle("active", b.dataset.page === page),
+          );
+      }
 
-  // ── COPY ──────────────────────────────────────────────────────────────
-  function copyText(btn, text) {
-    navigator.clipboard.writeText(text).then(() => {
-      btn.textContent = "✓ Copied";
-      btn.classList.add("copied");
-      setTimeout(() => { btn.textContent = "Copy"; btn.classList.remove("copied"); }, 1500);
-    });
-  }
+      // ── COPY ──────────────────────────────────────────────────────────────
+      function copyText(btn, text) {
+        navigator.clipboard.writeText(text).then(() => {
+          btn.textContent = "✓ Copied";
+          btn.classList.add("copied");
+          setTimeout(() => {
+            btn.textContent = "Copy";
+            btn.classList.remove("copied");
+          }, 1500);
+        });
+      }
 
-  // ── START ─────────────────────────────────────────────────────────────
-  init();
-</script>
-</body>
+      // ── START ─────────────────────────────────────────────────────────────
+      init();
+    </script>
+  </body>
 </html>
