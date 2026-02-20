@@ -718,6 +718,24 @@
         font-size: 13px;
         font-family: "JetBrains Mono", monospace;
       }
+
+      .download-sp-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 9px 18px;
+        background: linear-gradient(135deg, #3b82f6, #6366f1);
+        border: none;
+        border-radius: 7px;
+        color: #fff;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 600;
+        transition: opacity 0.15s;
+      }
+      .download-sp-btn:hover {
+        opacity: 0.9;
+      }
     </style>
   </head>
   <body>
@@ -1013,6 +1031,22 @@
           </div>
         </div>
       </div>
+      <!-- Download Layers -->
+      <div class="setting-card">
+        <div class="card-header">
+          <span class="card-header-icon">📥</span>
+          <span class="card-header-title">Download Layers</span>
+          <span class="card-badge">SharePoint</span>
+        </div>
+        <div class="card-body">
+          <div class="card-note" style="margin-bottom: 14px">
+            Download layer files — opens the SharePoint folder.
+          </div>
+          <button class="download-sp-btn" onclick="openSharePoint()">
+            ↗ Open SharePoint Folder
+          </button>
+        </div>
+      </div>
     </div>
     <!-- /page-settings -->
 
@@ -1133,7 +1167,7 @@
             layers = data.layers.map((l) => ({ ...l, id: Number(l.id) }));
             nextId = Math.max(...layers.map((l) => l.id)) + 1;
           } else {
-            // Sheets 비어있으면 그냥 빈 상태로 시작
+            // Start with empty state if Sheets is empty
             layers = [];
             nextId = 1;
           }
@@ -1180,7 +1214,7 @@
             [l.name, l.dataset, l.description].some((t) =>
               String(t).toLowerCase().includes(q),
             );
-          // archived는 명시적으로 "archived" 필터 선택했을 때만 보임 (all에서도 숨김)
+          // Archived rows are hidden unless the "archived" filter is explicitly selected
           if (l.status === "archived" && currentFilter !== "archived")
             return false;
           if (currentFilter === "archived")
@@ -1331,7 +1365,7 @@
         const dataset = document.getElementById("f-dataset").value.trim();
         const desc = document.getElementById("f-desc").value.trim();
         if (!name || !dataset) {
-          alert("Layer Name과 Dataset Name은 필수입니다.");
+          alert("Layer Name and Dataset Name are required.");
           return;
         }
 
@@ -1363,7 +1397,7 @@
       }
 
       async function deleteLayer(id) {
-        if (!confirm("이 레이어를 삭제할까요?")) return;
+        if (!confirm("Delete this layer?")) return;
         layers = layers.filter((l) => l.id !== id);
         renderTable();
         await syncToSheet();
@@ -1392,6 +1426,20 @@
             btn.classList.remove("copied");
           }, 1500);
         });
+      }
+
+      // ── SHAREPOINT ────────────────────────────────────────────────────────
+      const SHAREPOINT_URL =
+        "https://montgomeryal-my.sharepoint.com/:f:/g/personal/hnam_montgomeryal_gov/IgAEKdBZBKD8QYPMQgy7wkVNAfjDk2I6VsHSgASfebfuF6Y?e=Z68k6h"; // ← Paste your SharePoint link here
+
+      function openSharePoint() {
+        if (!SHAREPOINT_URL) {
+          alert(
+            "SharePoint link is not configured yet.\nPlease set the SHAREPOINT_URL variable.",
+          );
+          return;
+        }
+        window.open(SHAREPOINT_URL, "_blank");
       }
 
       // ── START ─────────────────────────────────────────────────────────────
