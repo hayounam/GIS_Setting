@@ -737,6 +737,8 @@
         opacity: 0.9;
       }
 
+      
+
       /* ── BACK TO TOP ── */
       #back-to-top {
         position: fixed;
@@ -945,7 +947,7 @@
         <div class="card-header">
           <span class="card-header-icon">🌐</span>
           <span class="card-header-title">County Server (REST)</span>
-          <span class="card-badge">KCS GIS</span>
+          <span class="card-badge">County GIS</span>
         </div>
         <div class="card-body">
           <div class="field-group">
@@ -992,12 +994,88 @@
         </div>
       </div>
 
+      <!-- SDE (Staff Only) -->
+      <div class="setting-card">
+        <div class="card-header">
+          <span class="card-header-icon">✅️</span>
+          <span class="card-header-title"
+            >City SDE — SQL Server Connection (For Everyone)</span
+          >
+          <span class="card-badge">Internal</span>
+        </div>
+        <div class="card-body">
+          <div class="steps">
+            <div class="step-item">
+              <div class="step-num">0</div>
+              <div class="step-text">Get SQL Access from IT & Click New database connection</div>
+            </div>
+            <div class="step-item">
+              <div class="step-num">1</div>
+              <div class="step-text">
+                Instance box: <code>gissql23</code>
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-num">2</div>
+              <div class="step-text">
+                Authentication Type →
+                <code>Data authentication</code> Select
+              </div>
+            </div>
+            <div class="step-item">
+              <div class="step-num">3</div>
+              <div class="step-text">
+                Put password ID: <code>mapping25</code> → Put password: <code>mapp1ng25!</code>
+              </div>
+            </div>
+            <div class="step-item"></div>
+          </div>
+
+          <div class="field-group">
+            <div class="field-label">Instance</div>
+            <div class="field-row">
+              <div class="field-val">gissql23</div>
+              <button class="copy-btn" onclick="copyText(this, 'gissql23')">
+                Copy
+              </button>
+            </div>
+          </div>
+          <div class="field-group">
+            <div class="field-label">Authentication</div>
+            <div class="field-val" style="color: var(--text-2)">
+              Data authentication
+            </div>
+          </div>
+
+          <div class="two-col">
+            <div class="field-group" style="margin-bottom: 0">
+              <div class="field-label">ID</div>
+              <div class="field-row">
+                <div class="db-chip">mapping25</div>
+                <button class="copy-btn" onclick="copyText(this, 'mapping25')">
+                  Copy
+                </button>
+              </div>
+            </div>
+            <div class="field-group" style="margin-bottom: 0">
+              <div class="field-label">Password</div>
+              <div class="field-row">
+                <div class="db-chip">Mapp1ng25!</div>
+                <button class="copy-btn" onclick="copyText(this, 'Mapp1ng25!')">
+                  Copy
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       <!-- SDE -->
       <div class="setting-card">
         <div class="card-header">
           <span class="card-header-icon">🗄</span>
           <span class="card-header-title"
-            >City SDE — SQL Server Connection</span
+            >City SDE — SQL Server Connection (For GIS Staff)</span
           >
           <span class="card-badge">Internal</span>
         </div>
